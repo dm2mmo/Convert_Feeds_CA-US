@@ -48,19 +48,17 @@ def convert_amazon_feed():
     ]
 
     # --- Blacklist Keywords (DANH SÁCH BLACKLIST MỚI) ---
-    blacklist_keywords = [
+    BLACKLIST_KEYWORDS = [
         "Whyitsme", "Cottagecore", "Trump", "Biden", "Reggae", "Smoke Daddy", "Celtic Cross", "Bob Marley", "Family Guy", "Gay Cat", "Gay Trash", "Fishy", "Venom", "Boba", "BSN", "Uterus", "Van Gogh",
         "CARHARTT", "Nonni", "Kangaroo", "Tuxedo", "Dibble", "Dabble", "Oh ship", "COHIBA", "Jurassic", "Jeep", "Jeeps", "Adventure Before Dementia", "antisocial", "anti social", "Cobra", "Python",
-        "Spirit Halloween", "Got Titties", "Le Tits Now", "Mack Trucks", "V-buck", "V buck", "Vbuck", "World Traveler", "Rollerblade", "Black Lives Matter", "Just The Tip", "In My Defense", "Van Gogh",
+        "Spirit Halloween", "Got Titties", "Le Tits Now", "Mack Trucks", "V-buck", "V buck", "Vbuck", "World Traveler", "Rollerblade", "Black Lives Matter", "Just The Tip", "In My Defense", "Sleep Token",
         "U.S.Army", "US Army", "Crazy Chicken Lady", "Christmas In July", "Grill Sergeant", "Ducks Unlimited", "SOTALLY Tober", "Birds aren't Real", "Pickleballer", "Quaker", "Vampire Mansion",
         "Lampoon's", "Lampoons", "Lampoon", "krampus", "griswold", "Brainrot", "Disney", "Marvel", "Star Wars", "Music Television", "MTV", "Fender", "Nightmare Before Christmas", "Life is Good",
-        "WWE", "NFL", "NBA", "Robux", "ASPCA", "Alpha Wolf",
+        "WWE", "NFL", "NBA", "Robux", "ASPCA", "Alpha Wolf", "Milkshake", "milk_shake", "Costume Agent",
     ]
-    # Chuyển tất cả từ khóa về chữ thường để so sánh không phân biệt hoa thường
-    blacklist_keywords_lower = [k.lower() for k in blacklist_keywords]
 
     # --- Keyword Replacements (DANH SÁCH THAY THẾ TỪ KHÓA MỚI) ---
-    keyword_replacements = {
+    REPLACEMENT_KEYWORDS = {
         "Guess": "Funny",
         "Rubiks": "Cube",
         "Jockey": "Funny",
@@ -85,6 +83,12 @@ def convert_amazon_feed():
         "Ducky": "Duck Lovers",
         "Skittles": "Fruit Candy",
     }
+    
+    # Tên các cột cần kiểm tra trong file input
+    COLUMNS_TO_CHECK = [
+        "item_name", "product_description", "bullet_point1", "bullet_point2",
+        "bullet_point3", "bullet_point4", "bullet_point5", "generic_keywords"
+    ]
 
     # --- User Inputs ---
     input_file_name = input("Nhập tên file Excel Canada (không cần '.xlsx'): ")
@@ -188,31 +192,68 @@ def convert_amazon_feed():
         if "list_price" in df_data.columns:
             df_data["list_price"] = new_price
         
-        # --- NEW: Replace Blacklist Keywords ---
-        print("\nĐang thay thế các từ khóa theo danh sách...")
-        df_data = replace_keywords(df_data, keyword_replacements)
-        print("Đã hoàn thành việc thay thế từ khóa.")
-
-        # --- NEW: Filter Blacklist Rows ---
+        # --- NEW: Filter Blacklist Rows with detailed logging ---
         print("\nĐang lọc các hàng chứa từ khóa trong blacklist...")
         initial_rows = len(df_data)
-        df_data = filter_blacklist_rows(df_data, blacklist_keywords_lower)
-        rows_deleted = initial_rows - len(df_data)
-        if rows_deleted > 0:
-            print(f"Đã xóa {rows_deleted} hàng do chứa từ khóa trong blacklist.")
-        else:
-            print("Không có hàng nào bị xóa do không chứa từ khóa blacklist.")
+        
+        rows_to_delete = []
+        deleted_log = []
 
+        for index, row in df_data.iterrows():
+            row_deleted = False
+            for col in COLUMNS_TO_CHECK:
+                if col in row:
+                    found_keyword = contains_blacklist_keyword_with_info(row[col], BLACKLIST_KEYWORDS)
+                    if found_keyword:
+                        # Ghi log chi tiết
+                        # Cộng 4 vì có 3 hàng header + index bắt đầu từ 0
+                        original_row_number = index + 4
+                        deleted_log.append({
+                            "Hàng": original_row_number,
+                            "Từ khóa bị cấm": found_keyword,
+                            "Cột": col
+                        })
+                        rows_to_delete.append(index)
+                        row_deleted = True
+                        break # Chuyển sang hàng tiếp theo nếu đã tìm thấy từ khóa
+            
+        df_data_cleaned = df_data.drop(rows_to_delete)
+        
+        deleted_count = len(rows_to_delete)
+        print(f"----------------------------------------------------")
+        print(f"TÓM TẮT XỬ LÝ")
+        print(f"Tổng số hàng dữ liệu ban đầu: {initial_rows}")
+        print(f"Tổng số hàng bị xóa: {deleted_count}")
+        
+        if deleted_count > 0:
+            print(f"\nCHI TIẾT CÁC HÀNG BỊ XÓA:")
+            for log_entry in deleted_log:
+                print(f"- Hàng {log_entry['Hàng']}: Bị xóa vì từ khóa '{log_entry['Từ khóa bị cấm']}' trong cột '{log_entry['Cột']}'")
+        else:
+            print(f"Không có hàng nào bị xóa do chứa từ khóa blacklist.")
+        
+        print(f"----------------------------------------------------")
+
+        # --- Keyword Replacement ---
+        print("\nĐang thay thế các từ khóa theo danh sách...")
+        for col in COLUMNS_TO_CHECK:
+            if col in df_data_cleaned.columns:
+                df_data_cleaned[col] = df_data_cleaned[col].apply(
+                    lambda text: replace_keywords(text, REPLACEMENT_KEYWORDS)
+                )
+        print("Đã hoàn thành việc thay thế từ khóa.")
+        
     else:
         print("CẢNH BÁO: DataFrame dữ liệu rỗng. Không thực hiện biến đổi nào.")
+        df_data_cleaned = pd.DataFrame(columns=us_tags_internal_df_cols)
 
     # --- Column Reordering for output ---
-    # Ensure all target US columns exist in df_data, add as NA if missing
+    # Ensure all target US columns exist in df_data_cleaned, add as NA if missing
     for col in us_tags_internal_df_cols:
-        if col not in df_data.columns:
-            df_data[col] = pd.NA
+        if col not in df_data_cleaned.columns:
+            df_data_cleaned[col] = pd.NA
 
-    df_converted = df_data[us_tags_internal_df_cols]
+    df_converted = df_data_cleaned[us_tags_internal_df_cols]
 
     # --- Save the converted file using openpyxl for precise header control ---
     base_name = os.path.splitext(input_file_path)[0]
@@ -262,63 +303,32 @@ def convert_amazon_feed():
         print(f"\nLỖI KHI LƯU FILE EXCEL: {e}")
         print("Vui lòng đảm bảo file Excel đầu ra không đang mở trong các ứng dụng khác và thử lại.")
 
-# --- NEW FUNCTION: Replace Keywords ---
-def replace_keywords(df, replacements):
+# --- HELPER FUNCTIONS ---
+def contains_blacklist_keyword_with_info(text, blacklist):
     """
-    Thay thế các từ khóa trong DataFrame bằng các từ khóa mới theo từ điển.
-    Thực hiện thay thế không phân biệt hoa thường.
+    Kiểm tra xem một chuỗi có chứa bất kỳ từ khóa nào trong blacklist không
+    và trả về từ khóa đầu tiên tìm thấy.
     """
-    if df.empty:
-        return df
+    if pd.isna(text):
+        return None
     
-    df_copy = df.copy()
+    text_lower = str(text).lower()
+    for keyword in blacklist:
+        if re.search(r'\b' + re.escape(keyword.lower()) + r'\b', text_lower):
+            return keyword
+    return None
+
+def replace_keywords(text, replacements):
+    """
+    Thay thế các từ khóa trong một chuỗi bằng các từ khóa tương ứng.
+    """
+    if pd.isna(text):
+        return ""
     
-    # Duyệt qua từng cặp từ khóa cũ và từ khóa mới
-    for old_keyword, new_keyword in replacements.items():
-        # Tạo regex pattern để tìm kiếm từ khóa cũ một cách không phân biệt hoa thường
-        # Sử dụng re.escape để xử lý các ký tự đặc biệt
-        pattern = re.compile(re.escape(old_keyword), re.IGNORECASE)
-        
-        # Áp dụng thay thế trên tất cả các cột kiểu chuỗi
-        for col in df_copy.columns:
-            if pd.api.types.is_string_dtype(df_copy[col]):
-                df_copy[col] = df_copy[col].astype(str).apply(
-                    lambda x: pattern.sub(new_keyword, x)
-                )
-    return df_copy
-
-# --- NEW FUNCTION: Filter Blacklist Rows ---
-def filter_blacklist_rows(df, blacklist_keywords_lower):
-    """
-    Lọc và xóa các hàng trong DataFrame nếu bất kỳ ô nào trong hàng đó chứa từ khóa trong blacklist.
-    So sánh không phân biệt hoa thường.
-    """
-    if df.empty:
-        return df
-
-    # Tạo một Series boolean, mặc định tất cả là True (không bị blacklist)
-    # Nếu bất kỳ ô nào trong hàng chứa từ khóa blacklist, hàng đó sẽ bị đánh dấu là False
-    rows_to_keep = pd.Series(True, index=df.index)
-
-    for keyword in blacklist_keywords_lower:
-        # Kiểm tra từng cột trong DataFrame
-        for col in df.columns:
-            # Chuyển đổi tất cả giá trị trong cột về chuỗi để tìm kiếm, xử lý NaN an toàn
-            # Sử dụng str.contains với regex=False để tìm kiếm chuỗi con đơn giản
-            # và case=False để không phân biệt hoa thường
-            if pd.api.types.is_string_dtype(df[col]):
-                # Chỉ kiểm tra nếu cột là kiểu chuỗi để tránh lỗi
-                mask = df[col].astype(str).str.lower().str.contains(re.escape(keyword), na=False, regex=False)
-            else:
-                # Đối với các kiểu dữ liệu khác, chuyển sang chuỗi và kiểm tra
-                mask = df[col].astype(str).str.lower().str.contains(re.escape(keyword), na=False, regex=False)
-            
-            # Nếu có bất kỳ hàng nào phù hợp với từ khóa này, đánh dấu rows_to_keep của hàng đó là False
-            rows_to_keep = rows_to_keep & (~mask) # Giữ lại những hàng KHÔNG chứa từ khóa
-
-    # Trả về DataFrame chỉ với các hàng được giữ lại
-    return df[rows_to_keep]
-
+    modified_text = str(text)
+    for old_word, new_word in replacements.items():
+        modified_text = re.sub(r'\b' + re.escape(old_word) + r'\b', new_word, modified_text, flags=re.IGNORECASE)
+    return modified_text
 
 # Call the main function to run the script
 if __name__ == "__main__":
