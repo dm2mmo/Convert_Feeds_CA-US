@@ -54,7 +54,7 @@ def convert_amazon_feed():
         "Spirit Halloween", "Got Titties", "Le Tits Now", "Mack Trucks", "V-buck", "V buck", "Vbuck", "World Traveler", "Rollerblade", "Black Lives Matter", "Just The Tip", "In My Defense", "Sleep Token",
         "U.S.Army", "US Army", "Crazy Chicken Lady", "Christmas In July", "Grill Sergeant", "Ducks Unlimited", "SOTALLY Tober", "Birds aren't Real", "Pickleballer", "Quaker", "Vampire Mansion",
         "Lampoon's", "Lampoons", "Lampoon", "krampus", "griswold", "Brainrot", "Disney", "Marvel", "Star Wars", "Music Television", "MTV", "Fender", "Nightmare Before Christmas", "Life is Good",
-        "WWE", "NFL", "NBA", "Robux", "ASPCA", "Alpha Wolf", "Milkshake", "milk_shake", "Costume Agent",
+        "WWE", "NFL", "NBA", "Robux", "ASPCA", "Alpha Wolf", "Milkshake", "milk_shake", "Costume Agent", "La Colombe", "Tesla",
     ]
 
     # --- Keyword Replacements (DANH SÁCH THAY THẾ TỪ KHÓA MỚI) ---
@@ -82,6 +82,8 @@ def convert_amazon_feed():
         "Arcade": "Game Machine",
         "Ducky": "Duck Lovers",
         "Skittles": "Fruit Candy",
+        "Akita": "Dog",
+        "Lucky Charms": "Lucky Gifts",
     }
     
     # Tên các cột cần kiểm tra trong file input
